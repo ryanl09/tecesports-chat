@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "mysql": "^2.18.1",
+    "ws": "^8.13.0"
+  },
+  "name": "tecesports-chat",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanl09/tecesports-chat.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ryanl09/tecesports-chat/issues"
+  },
+  "homepage": "https://github.com/ryanl09/tecesports-chat#readme",
+  "description": ""
+}
