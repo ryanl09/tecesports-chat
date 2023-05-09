@@ -1,15 +1,4 @@
 var http = require('http');
-var dbo = require('./dbconfig');
-var mysql = require('mysql');
-var db = mysql.createConnection({
-    host:dbo.HOST,
-    user:dbo.USER,
-    pass:dbo.PASS,
-    database:dbo.DB,
-});
-db.connect((err)=>{
-    //console.log(error);
-});
 var crypto = require('crypto');
 var ws = require('ws');
 
@@ -20,46 +9,74 @@ server.listen(8080);
 
 
 const rooms = {};
+const userMap = {};
+
+
 const wss = new ws.WebSocketServer({ server: server });
 wss.on('connection', (client)=>{
     client.on('message', (data)=>{
         const msg = JSON.parse(data);
-        const { type, room, userId } = msg
+        const { type, room, uuid } = msg
         if (type === 'init'){
             if(rooms[room] === undefined){
                 rooms[room]=[];
             }
 
-            const users = rooms[room].map(e=>e.userId);
-            if(users.indexOf(userId)===-1){
+            const { token } = msg;
+            userMap[uuid] = token;
+
+            const users = rooms[room].map(e=>e.uuid);
+            if(users.indexOf(uuid)===-1){
                 rooms[room].push({
-                    userId:userId,
+                    uuid:uuid,
                     client:client
                 });
             }
+            
             broadcast(room,{
                 type:'join',
-                userId:userId
+                uuid:uuid
             });
 
         } else if (type === 'm'){
-            const { message } = msg;
-            broadcast(room,{
-                userId:userId,
-                message:message
-            });
-            sendMessage(room,userId,message);
+            const message = msg.msg;
+            sendMessage(room,uuid,message);
         }
+    });
+    client.on('close', (code, reason) => {
+        //code=1001 = closed
     });
 });
 
 function broadcast(room,data){
+    const d = JSON.stringify(data);
     rooms[room].forEach(e=>{
-        e.client.send(JSON.stringify(data));
+        e.client.send(d);
     });
 }
 
-function sendMessage(room,userId,message){
-    const uuid = crypto.randomUUID();
-    db.query('INSERT INTO `messages` (`id`, `convo_id`, `user_id`, `msg`) VALUES (?, ?, ?, ?)',[uuid,room,userId,message]);
+function sendMessage(room,uuid,message){
+    const res = fetch('https://api.tecesports.com/private/v2/chat', {
+        method:'POST',
+        headers: {
+            'Content-Type':'application/json'
+        },
+        cache: 'no-cache',
+        body: JSON.stringify({
+            convoId:room,
+            userId:uuid,
+            msg:message,
+            action:'sendChat',
+            token:userMap[uuid]
+        })
+    }).then(r => {
+        return r.json();
+    }).then(data => {
+        broadcast(room,{
+            uuid:uuid,
+            msg:message,
+            type:'m',
+            messageId:data.success
+        });
+    });
 }
