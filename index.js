@@ -15,32 +15,37 @@ const userMap = {};
 const wss = new ws.WebSocketServer({ server: server });
 wss.on('connection', (client)=>{
     client.on('message', (data)=>{
-        const msg = JSON.parse(data);
-        const { type, room, uuid } = msg
-        if (type === 'init'){
-            if(rooms[room] === undefined){
-                rooms[room]=[];
-            }
+        try {
 
-            const { token } = msg;
-            userMap[uuid] = token;
-
-            const users = rooms[room].map(e=>e.uuid);
-            if(users.indexOf(uuid)===-1){
-                rooms[room].push({
-                    uuid:uuid,
-                    client:client
+            const msg = JSON.parse(data);
+            const { type, room, uuid } = msg
+            if (type === 'init'){
+                if(rooms[room] === undefined){
+                    rooms[room]=[];
+                }
+    
+                const { token } = msg;
+                userMap[uuid] = token;
+    
+                const users = rooms[room].map(e=>e.uuid);
+                if(users.indexOf(uuid)===-1){
+                    rooms[room].push({
+                        uuid:uuid,
+                        client:client
+                    });
+                }
+                
+                broadcast(room,{
+                    type:'join',
+                    uuid:uuid
                 });
+    
+            } else if (type === 'm'){
+                const message = msg.msg;
+                sendMessage(room,uuid,message);
             }
-            
-            broadcast(room,{
-                type:'join',
-                uuid:uuid
-            });
-
-        } else if (type === 'm'){
-            const message = msg.msg;
-            sendMessage(room,uuid,message);
+        } catch (e) {
+            //report error
         }
     });
     client.on('close', (code, reason) => {
@@ -78,5 +83,7 @@ function sendMessage(room,uuid,message){
             type:'m',
             messageId:data.success
         });
+    }).catch((e) => {
+        //report
     });
 }
