@@ -3,13 +3,26 @@ var https = require('https');
 var crypto = require('crypto');
 var ws = require('ws');
 var fs = require('fs');
+var url = require('url');
 const fetch = require('node-fetch');
 
-var server = https.createServer({
-    key: fs.readFileSync('/etc/letsencrypt/live/tecesports.com/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/tecesports.com/cert.pem')
-});
-server.listen(8080);
+try {
+    /*
+    var server = https.createServer({
+        key: fs.readFileSync('/etc/letsencrypt/live/tecesports.com/privkey.pem'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/tecesports.com/cert.pem')
+    });
+    server.listen(8080);*/
+    
+    
+    var server=http.createServer();
+    server.listen(8080);
+
+    console.log('server started');
+
+} catch(e){
+    console.log('error');
+}
 
 class ChatServer {
     constructor() {
@@ -41,17 +54,6 @@ class ChatServer {
             const userId = m.uuid;
     
             switch (m.type){
-                case 'init':
-                    client.roomId = roomId;
-                    const token = m.token;
-                    
-                    const room = this.addRoom(roomId);
-                    room.addUser(new User(client, userId, token));
-                    room.broadcast({
-                        type:'join',
-                        userId:userId
-                    });
-                    break;
                 case 'm':
                     const roomMessage = this.getRoom(roomId);
                     roomMessage.sendMessage(client.id, m.msg);
@@ -142,11 +144,8 @@ class Room {
         if(typeof data !== 'string'){
             data=JSON.stringify(data);
         }
-        console.log(data);
         const keys = Object.keys(this.users);
-        console.log(keys);
         keys.forEach(e => {
-            console.log(e);
             this.users[e].getClient().send(data);
         });
     }
@@ -172,14 +171,11 @@ class User {
     }
 }
 
-
-
-
-
-
-
 const c = new ChatServer();
-const wss = new ws.WebSocketServer({ server: server });
+const wss = new ws.WebSocketServer({ 
+    server: server,
+});
+console.log(wss.address());
 
 wss.getID = function () {
     function s4() {
@@ -188,13 +184,32 @@ wss.getID = function () {
     return s4() + s4() + '-' + s4();
 }
 
-wss.on('connection', (client)=>{
+wss.on('connection', (client, req)=>{
     client.id = wss.getID();
+    const search = url.parse(req.url).search;
+    const query = Object.fromEntries(new URLSearchParams(search));
+
+    const roomId = query.convoId;
+    const token = query.token;
+    const userId = query.userId;
+
+    console.log(roomId, token, userId);
+    
+    const room = c.addRoom(roomId);
+    room.addUser(new User(client, userId, token));
+    room.broadcast({
+        type:'join',
+        userId:userId
+    });
+
     client.on('message', (e) => {
         c.parseMessage(e, client);
     });
     client.on('close', (code, reason) => {
         c.handleLeave(client);
+    });
+    client.on('error', (e)=>{
+        console.log('error');
     });
 });
 
