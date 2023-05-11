@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "mysql": "^2.18.1",
+    "node-fetch": "^2.6.11",
     "ws": "^8.13.0"
   },
   "name": "tecesports-chat",
